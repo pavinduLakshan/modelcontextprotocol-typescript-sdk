@@ -344,9 +344,9 @@ export async function selectResourceURL(serverUrl: string | URL, provider: OAuth
   }
 
   // Validate that the metadata's resource is compatible with our request
-  if (!checkResourceAllowed({ requestedResource: defaultResource, configuredResource: resourceMetadata.resource })) {
-    throw new Error(`Protected resource ${resourceMetadata.resource} does not match expected ${defaultResource} (or origin)`);
-  }
+  // if (!checkResourceAllowed({ requestedResource: defaultResource, configuredResource: resourceMetadata.resource })) {
+  //   throw new Error(`Protected resource ${resourceMetadata.resource} does not match expected ${defaultResource} (or origin)`);
+  // }
   // Prefer the resource from metadata since it's what the server is telling us to request
   return new URL(resourceMetadata.resource);
 }
@@ -437,11 +437,11 @@ async function fetchWithCorsRetry(
  * Constructs the well-known path for OAuth metadata discovery
  */
 function buildWellKnownPath(wellKnownPrefix: string, pathname: string): string {
-  let wellKnownPath = `/.well-known/${wellKnownPrefix}${pathname}`;
-  if (pathname.endsWith('/')) {
-    // Strip trailing slash from pathname to avoid double slashes
-    wellKnownPath = wellKnownPath.slice(0, -1);
-  }
+  const wellKnownPath = `/.well-known/${wellKnownPrefix}`;
+  // if (pathname.endsWith('/')) {
+  //   // Strip trailing slash from pathname to avoid double slashes
+  //   wellKnownPath = wellKnownPath.slice(0, -1);
+  // }
   return wellKnownPath;
 }
 
@@ -470,7 +470,7 @@ function shouldAttemptFallback(response: Response | undefined, pathname: string)
  */
 async function discoverMetadataWithFallback(
   serverUrl: string | URL,
-  wellKnownType: 'oauth-authorization-server' | 'oauth-protected-resource',
+  wellKnownType: 'oauth-authorization-server' | 'oauth-protected-resource' | 'openid-configuration',
   opts?: { protocolVersion?: string; metadataUrl?: string | URL, metadataServerUrl?: string | URL },
 ): Promise<Response | undefined> {
   const issuer = new URL(serverUrl);
@@ -482,7 +482,7 @@ async function discoverMetadataWithFallback(
   } else {
     // Try path-aware discovery first
     const wellKnownPath = buildWellKnownPath(wellKnownType, issuer.pathname);
-    url = new URL(wellKnownPath, opts?.metadataServerUrl ?? issuer);
+    url = new URL(issuer + wellKnownPath);
     url.search = issuer.search;
   }
 
@@ -523,10 +523,9 @@ export async function discoverOAuthMetadata(
     authorizationServerUrl = new URL(authorizationServerUrl);
   }
   protocolVersion ??= LATEST_PROTOCOL_VERSION;
-
   const response = await discoverMetadataWithFallback(
-    issuer,
-    'oauth-authorization-server',
+    authorizationServerUrl,
+    'openid-configuration',
     {
       protocolVersion,
       metadataServerUrl: authorizationServerUrl,
